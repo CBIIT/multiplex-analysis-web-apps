@@ -20,6 +20,11 @@ def get_location_settings():
     return fnp_main.get_location_settings()
 
 
+@st.cache_data(show_spinner="Sampling dataset...", show_time=True)
+def sample_lf(_lf):
+    return _lf.collect(engine="streaming").sample(100).sort(pl.col("Image ID_(standardized)"))
+
+
 # Define the main function.
 def main():
 
@@ -93,9 +98,6 @@ def main():
     st.markdown(information)
 
     # Show a sample of 100 rows from the lazyframe.
-    @st.cache_data(show_spinner="Sampling dataset...", show_time=True)
-    def sample_lf(_lf):
-        return _lf.collect(engine="streaming").sample(100).sort(pl.col("Image ID_(standardized)"))
     st.write(sample_lf(lf))
     st.button("Resample dataset", on_click=sample_lf.clear)
 
