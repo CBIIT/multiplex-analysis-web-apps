@@ -15,6 +15,7 @@ import framework.platform_abstraction as pa
 import time
 import scipy.spatial
 import plotly.colors
+import io
 
 
 #### 1. First in load_unified_input_file.py ###############################################################
@@ -496,7 +497,40 @@ def plot_image_from_frame(
         raise
 
 
-#### 3. First in delete_cells.py (none yet) ########################################################
+#### 3. First in delete_cells.py ########################################################
+
+
+def dataframe_to_zipped_csv_bytes(
+    df: pl.DataFrame,
+    basename: str = "data",
+    compresslevel: int = 6,
+    **csv_kwargs,  # e.g., sep=",", include_header=True, null_value="", quote_style="necessary"
+) -> bytes:
+    """
+    Stream a Polars DataFrame into a zipped CSV (ZIP_DEFLATED) fully in memory
+    and return the zip bytes. No intermediate CSV buffer is created.
+    """
+    zip_buf = io.BytesIO()
+
+    # Create an in-memory ZIP file with deflate compression
+    with zipfile.ZipFile(
+        zip_buf, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=compresslevel
+    ) as zf:
+        # Open a writable member inside the ZIP; this returns a binary file-like object
+        with zf.open(basename + ".csv", mode="w") as csv_in_zip:
+            # Stream CSV directly into the ZIP entry; Polars writes efficiently in chunks
+            df.write_csv(csv_in_zip, **csv_kwargs)
+
+    # Rewind and return the bytes
+    zip_buf.seek(0)
+    return zip_buf.getvalue()
+
+
+def push_filtered_lazyframe_to_object_store(lf_with_deletion_groups, missing_label_value, output_unified_datafile_name):
+    lf_to_write = lf_with_deletion_groups.filter(pl.col("deletion_group").eq(missing_label_value)).rename({"input_index": "input_index_original"}).drop("deletion_group")
+    basename = "mawa-unified_datafile-" + output_unified_datafile_name
+    zip_buffer = dataframe_to_zipped_csv_bytes(lf_to_write.collect(engine="in-memory"), basename=basename)  # In-memory to preserve ordering; if we find this doesn't preserve actually ordering, we may as well use streaming.
+    pa.upload_zip_object_data(bucket_name=pa.DATA_OBJECTS_BUCKET_NAME, zip_name=basename + ".csv.zip", zip_buffer=zip_buffer, db_schema=f"{pa.get_user_group(pa.get_current_username())}_group_db.curated_schema")
 
 
 #### 4. First in run_spatial_umap.py ###############################################################
