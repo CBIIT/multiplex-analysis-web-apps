@@ -22,7 +22,7 @@ def get_location_settings():
 
 @st.cache_data(show_spinner="Sampling dataset...", show_time=True)
 def sample_lf(_lf):
-    return _lf.collect(engine="streaming").sample(100).sort(pl.col("Image ID_(standardized)"))
+    return _lf.collect(engine="streaming").sample(100).sort(pl.col("input_index"))
 
 
 # Define the main function.

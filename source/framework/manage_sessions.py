@@ -63,8 +63,7 @@ def load_session_state():
 
         framework_utils.deserialize_binary_files_to_dictionary("session_state", session_dir, dictionary=st.session_state, extra_dict_to_load=startup_keys, topdir_for_lazyframe_data=session_dir)
 
-        # # Restore the startup keys. Removing this for the time being since we load them in framework_utils.deserialize_binary_files_to_dictionary() above.
-        # st.session_state.update(startup_keys)
+        st.cache_data.clear()  # Clear all cached data to avoid inconsistencies with the newly loaded session state.
 
         return True
     except Exception as e:

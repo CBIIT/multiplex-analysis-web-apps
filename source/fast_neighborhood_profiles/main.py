@@ -500,15 +500,15 @@ def plot_image_from_frame(
 #### 3. First in delete_cells.py ########################################################
 
 
-def dataframe_to_zipped_csv_bytes(
+def dataframe_to_zipped_csv_buffer(
     df: pl.DataFrame,
     basename: str = "data",
     compresslevel: int = 6,
     **csv_kwargs,  # e.g., sep=",", include_header=True, null_value="", quote_style="necessary"
-) -> bytes:
+) -> io.BytesIO:
     """
     Stream a Polars DataFrame into a zipped CSV (ZIP_DEFLATED) fully in memory
-    and return the zip bytes. No intermediate CSV buffer is created.
+    and return the buffer. No intermediate CSV buffer is created.
     """
     zip_buf = io.BytesIO()
 
@@ -523,14 +523,27 @@ def dataframe_to_zipped_csv_bytes(
 
     # Rewind and return the bytes
     zip_buf.seek(0)
-    return zip_buf.getvalue()
+    return zip_buf
 
 
-def push_filtered_lazyframe_to_object_store(lf_with_deletion_groups, missing_label_value, output_unified_datafile_name):
-    lf_to_write = lf_with_deletion_groups.filter(pl.col("deletion_group").eq(missing_label_value)).rename({"input_index": "input_index_original"}).drop("deletion_group")
+def push_filtered_lazyframe_to_object_store(lf_to_filter, pd_df_deletion_groups, output_unified_datafile_name):
+
+    # Build a Polars DataFrame of unique banned indices.
+    banned_lf = (
+        pl.from_pandas(pd_df_deletion_groups).lazy()
+        .select(pl.col("input_indices").explode().alias("input_index"))  # Flatten lists.
+        .drop_nulls()
+        .unique()
+        .with_columns(pl.col("input_index").cast(pl.Int64))
+    )
+
+    # Anti-join: keep only rows whose input_index is NOT in the banned list.
+    lf_to_write = lf_to_filter.join(banned_lf, on="input_index", how="anti").rename({"input_index": "input_index_original"})
+
+    # lf_to_write = lf_with_deletion_groups.filter(pl.col("deletion_group").eq(missing_label_value)).rename({"input_index": "input_index_original"}).drop("deletion_group")
     basename = "mawa-unified_datafile-" + output_unified_datafile_name
-    zip_buffer = dataframe_to_zipped_csv_bytes(lf_to_write.collect(engine="in-memory"), basename=basename)  # In-memory to preserve ordering; if we find this doesn't preserve actually ordering, we may as well use streaming.
-    pa.upload_zip_object_data(bucket_name=pa.DATA_OBJECTS_BUCKET_NAME, zip_name=basename + ".csv.zip", zip_buffer=zip_buffer, db_schema=f"{pa.get_user_group(pa.get_current_username())}_group_db.curated_schema")
+    zip_buffer = dataframe_to_zipped_csv_buffer(lf_to_write.collect(engine="in-memory"), basename=basename)  # In-memory to preserve ordering; if we find this doesn't preserve actually ordering, we may as well use streaming.
+    pa.upload_zip_object_data(bucket_name=pa.DATA_OBJECTS_BUCKET_NAME, zip_name=basename + ".csv", zip_buffer=zip_buffer, db_schema=f"{pa.get_user_group(pa.get_current_username())}_group_db.curated_schema")
 
 
 #### 4. First in run_spatial_umap.py ###############################################################

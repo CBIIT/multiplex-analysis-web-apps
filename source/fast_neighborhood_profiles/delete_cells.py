@@ -185,7 +185,7 @@ def main():
 
     # Allow user to write out the modified unified datafile with the deletion groups deleted.
     if st.button("Write modified unified datafile with deletion groups deleted"):
-        fnp_main.push_filtered_lazyframe_to_object_store(lf_with_deletion_groups, missing_label_value, output_unified_datafile_name)
+        fnp_main.push_filtered_lazyframe_to_object_store(st.session_state["LAZYFRAMES"]["unified_input_file"]["lf"], st.session_state[ST_KEY_PREFIX + "de_selections"].reconstruct_edited_dataframe(), output_unified_datafile_name)
         st.success(f"Modified unified datafile written to object store. Now start from the \"Load unified input file\" page at left and load this modified datafile (you may have to refresh the file listing there).")
 
 
