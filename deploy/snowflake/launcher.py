@@ -42,12 +42,12 @@ def get_service_names(chosen_app_shortname, user_group, username, suffix=None, i
     raw_services_df = to_pandas2(session.sql(
         f"show services in schema {get_db_name(chosen_app_shortname)}.{user_group}_schema;"
     ))
-    mask = raw_services_df["\"name\""].str.lower().str.contains(f"_{username}{suffix}_", case=False, na=False)
+    mask = raw_services_df["name"].str.lower().str.contains(f"_{username}{suffix}_", case=False, na=False)
     if invert:
         matches_df = raw_services_df[~mask]
     else:
         matches_df = raw_services_df[mask]
-    return matches_df["\"name\""].tolist()  # potentially empty list
+    return matches_df["name"].tolist()  # potentially empty list
 
 
 # This should be the same as in platform_abstraction.py in the Snowflake branch.
@@ -128,14 +128,14 @@ def show_objects(app_shortnames, user_group):
     df_list = []
     for app_shortname in app_shortnames:
         # df_list.append(session.sql(f"show services in schema {get_db_name(app_shortname)}.{user_group}_schema;").to_pandas().rename(columns={"\"status\"": "\"state\""}))
-        df_list.append(to_pandas2(session.sql(f"show services in schema {get_db_name(app_shortname)}.{user_group}_schema;")).rename(columns={"\"status\"": "\"state\""}))
+        df_list.append(to_pandas2(session.sql(f"show services in schema {get_db_name(app_shortname)}.{user_group}_schema;")).rename(columns={"status": "state"}))
     # df_list.append(session.sql("show compute pools").to_pandas())
     df_list.append(to_pandas2(session.sql("show compute pools")))
     # df_list.append(session.sql("show warehouses").to_pandas())
     df_list.append(to_pandas2(session.sql("show warehouses")))
-    df = pd.concat(df_list, ignore_index=True).sort_values("\"updated_on\"", ignore_index=True, ascending=False)
+    df = pd.concat(df_list, ignore_index=True).sort_values("updated_on", ignore_index=True, ascending=False)
     # 🟢 for positive/active (delta "1"), 🔴 for negative (delta "-1"), none otherwise.
-    if "\"state\"" in df.columns:
+    if "state" in df.columns:
         def _add_state_emoji(val):
             if val is None:
                 return val
@@ -146,7 +146,7 @@ def show_objects(app_shortnames, user_group):
             elif delta_val == "-1":
                 return f"🔴 {val_str}"
             return val_str
-        df["\"state\""] = df["\"state\""].apply(_add_state_emoji)
+        df["state"] = df["state"].apply(_add_state_emoji)
     st.dataframe(df, use_container_width=True, hide_index=True)
 
 
