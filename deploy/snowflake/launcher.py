@@ -5,6 +5,11 @@ import pandas as pd
 import re
 
 
+def to_pandas2(snowpark_df):
+    """Convert a Snowpark DataFrame to a Pandas DataFrame."""
+    return pd.concat(list(snowpark_df.to_pandas_batches()), ignore_index=True)
+
+
 @st.cache_data()
 def get_owner_role():
     session = get_active_session()
@@ -31,9 +36,12 @@ def get_service_names(chosen_app_shortname, user_group, username, suffix=None, i
     else:
         raise ValueError(f"Invalid suffix: {suffix}")
     session = get_active_session()
-    raw_services_df = session.sql(
+    # raw_services_df = session.sql(
+    #     f"show services in schema {get_db_name(chosen_app_shortname)}.{user_group}_schema;"
+    # ).to_pandas()
+    raw_services_df = to_pandas2(session.sql(
         f"show services in schema {get_db_name(chosen_app_shortname)}.{user_group}_schema;"
-    ).to_pandas()
+    ))
     mask = raw_services_df["\"name\""].str.lower().str.contains(f"_{username}{suffix}_", case=False, na=False)
     if invert:
         matches_df = raw_services_df[~mask]
@@ -119,9 +127,12 @@ def show_objects(app_shortnames, user_group):
     session = get_active_session()
     df_list = []
     for app_shortname in app_shortnames:
-        df_list.append(session.sql(f"show services in schema {get_db_name(app_shortname)}.{user_group}_schema;").to_pandas().rename(columns={"\"status\"": "\"state\""}))
-    df_list.append(session.sql("show compute pools").to_pandas())
-    df_list.append(session.sql("show warehouses").to_pandas())
+        # df_list.append(session.sql(f"show services in schema {get_db_name(app_shortname)}.{user_group}_schema;").to_pandas().rename(columns={"\"status\"": "\"state\""}))
+        df_list.append(to_pandas2(session.sql(f"show services in schema {get_db_name(app_shortname)}.{user_group}_schema;")).rename(columns={"\"status\"": "\"state\""}))
+    # df_list.append(session.sql("show compute pools").to_pandas())
+    df_list.append(to_pandas2(session.sql("show compute pools")))
+    # df_list.append(session.sql("show warehouses").to_pandas())
+    df_list.append(to_pandas2(session.sql("show warehouses")))
     df = pd.concat(df_list, ignore_index=True).sort_values("\"updated_on\"", ignore_index=True, ascending=False)
     # 🟢 for positive/active (delta "1"), 🔴 for negative (delta "-1"), none otherwise.
     if "\"state\"" in df.columns:
