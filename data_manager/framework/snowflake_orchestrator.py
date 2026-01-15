@@ -96,7 +96,10 @@ def submit_job(job_id: str, username: str, session: Session, selected_compute_re
 def shutdown(username: str, session: Session, app_shortname: str, group_name: str, compute_resource: str):
     try:
 
-        service_size_mapping = {"1vcpu_6gib_1x": "xs", "6vcpu_28gib_4x": "m"}
+        all_compute_resources = "1vcpu_6gib_1x 3vcpu_13gib_2x 6vcpu_28gib_4x 6vcpu_58gib_5x 14vcpu_58gib_7x 28vcpu_116gib_14x 28vcpu_240gib_19x"
+        all_compute_pool_shortnames = ["xs", "s", "m", "hms", "sl", "l", "hmm"]
+
+        service_size_mapping = dict(zip(all_compute_resources.split(), all_compute_pool_shortnames))
 
         service_size_str = service_size_mapping[compute_resource]
 

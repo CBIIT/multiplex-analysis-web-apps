@@ -178,7 +178,7 @@ data/
 *.svg
 *.tar
 *.xls
-*.xlsx
+.xlsx
 *.zip
 *.tar.gz
 
