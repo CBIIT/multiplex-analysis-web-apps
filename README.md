@@ -61,6 +61,8 @@ For this, see [the instructions here](deploy/docker/update_image_metadata.md).
 
 ### 8. Deploy to Snowflake
 
+*Note that the SQL in this section can be run in a straightforward way via a Streamlit app located at https://github.com/CBIIT/snowflake-app-deployer. Once necessary files/objects are pushed to Snowflake, new deployments for new users can be added easily using that app (e.g., no find-replacing of usernames).*
+
 In general, in this section below, make the following sample substitutions, including in `deploy/snowflake/deploy.sql`:
 
   * `group_alpha` --> `cil`
