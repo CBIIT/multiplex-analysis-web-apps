@@ -2,13 +2,27 @@
 
 ## General how-to
 
-### 1. Modify the codebase
+Modify the codebase, ensure Docker Desktop is running, and run something like:
+
+```bash
+make build_insert_up ENV_NAME=leandro-robert ENV_PY_VER=3.12 DATE=2026-01-12 BUILD_VER=05
+```
+
+This will build the image, insert the image metadata into the local database, and start the container.
+
+Use the [App Deployer](https://github.com/CBIIT/snowflake-app-deployer) to deploy to Snowflake.
+
+## Additional notes
+
+### Older how-to
+
+#### 1. Modify the codebase
 
 Full-stack framework-specific files are located in `source/framework`. App-specific files (including an example `generate_results.py` file) are located in `source`.
 
 Framework files should be modified only as truly necessary. App files can be modified freely.
 
-### 2. Build the images
+#### 2. Build the images
 
 Build the `frontend`, `orchestrator`, and `data_manager` images using:
 
@@ -21,21 +35,21 @@ Build the `frontend`, `orchestrator`, and `data_manager` images using:
 
 The other two images (`postgres` and `minio`) should be pulled when the multi-container app is launched, below.
 
-### 3. Run the app locally
+#### 3. Run the app locally
 
 * E.g., `ENV_NAME=leandro-robert ENV_PY_VER=3.12 DATE=2025-11-24 BUILD_VER=04 docker compose up`.
 * To launch MAWA, go to: http://localhost:8501.
 * To launch the data manager, go to: http://localhost:8502.
 
-### 4. Simultaneous build/run
+#### 4. Simultaneous build/run
 
 * E.g., `ENV_NAME=leandro-robert ENV_PY_VER=3.12 DATE=2025-11-24 BUILD_VER=04 docker compose up --build`.
 
-### 5. Shut down the container
+#### 5. Shut down the container
 
 After shutting down the app using the in-app sidebar button or `ctrl-c` in the terminal, run, e.g., `ENV_NAME=leandro-robert ENV_PY_VER=3.12 DATE=2025-11-24 BUILD_VER=04 docker compose down`.
 
-### 6. Tag and push the images to Docker Hub
+#### 6. Tag and push the images to Docker Hub
 
 **Note: NCI IT is currently in the process of giving us an NCI Docker Hub account to use.**
 
@@ -55,11 +69,11 @@ docker tag mawa-data-manager:$IMAGE_TAG andrewweisman/mawa-data-manager:$IMAGE_T
 
 The images in this example are located at https://hub.docker.com/u/andrewweisman.
 
-### 7. Update the image metadata table
+#### 7. Update the image metadata table
 
 For this, see [the instructions here](deploy/docker/update_image_metadata.md).
 
-### 8. Deploy to Snowflake
+#### 8. Deploy to Snowflake
 
 *Note that the SQL in this section can be run in a straightforward way via a Streamlit app located at https://github.com/CBIIT/snowflake-app-deployer. Once necessary files/objects are pushed to Snowflake, new deployments for new users can be added easily using that app (e.g., no find-replacing of usernames).*
 
@@ -111,8 +125,6 @@ snow sql --connection eval3 --role accountadmin  # Works for Andrew since he has
 Step through `deploy/snowflake/deploy.sql`.
 
 As you add new services to Snowflake, please update the file `service_modification.sql` in the GitHub repository `git@github.com:CBIIT/snowflake-user-setup.git` so the services can be modified easily in the future.
-
-## Additional notes
 
 ### Testing external loading of archives created on NIDAP
 
