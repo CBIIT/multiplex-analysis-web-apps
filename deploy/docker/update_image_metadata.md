@@ -27,6 +27,12 @@ whenever we push an image there, locally we want to do the analogous. However, s
     psql "postgresql://postgres:password@database:5432/app_a_app_db"
     ```
 
+1. Create the `general_schema` schema:
+
+    ```sql
+    create schema if not exists general_schema;
+    ```
+
 1. Drop the table completely:
 
     ```sql
