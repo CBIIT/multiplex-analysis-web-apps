@@ -184,7 +184,7 @@ def main():
     # Allow the user to select which startable service (i.e., version of the app) they'd like to control. Make the default a minimal-compute-resource one, if available.
     key = "chosen_startable_service_name"
     if key not in st.session_state:
-        minimal_services = [x for x in startable_service_names if "_1x_" in x.lower()]
+        minimal_services = [x for x in startable_service_names if ("_1x_" in x.lower()) or ("_xs_" in x.lower())]
         if minimal_services:
             st.session_state[key] = minimal_services[0]
         else:
