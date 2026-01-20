@@ -108,7 +108,7 @@ def main():
     # Add option for user to modify how to keep duplicate cell assignments when registering deletion groups.
     key = ST_KEY_PREFIX + "keep_strategy"
     st.session_state.setdefault(key, "any")
-    keep_strategy = st.radio("Select keep strategy for resolving multiple labels for a given cell when registering deletion groups:", options=['first', 'last', 'any', 'none'], key=key, help='"none" drops duplicates; "any" is non-deterministic but fast.', horizontal=True)
+    keep_strategy = st.radio("Select keep strategy for resolving multiple labels for a given cell when registering deletion groups:", options=['first', 'last', 'any', 'none'], key=key, help='"none" drops duplicates (though ultimately does not drop duplicates for the new set including deletions); "any" is non-deterministic but fast.', horizontal=True)
     
     # Allow user to register the selected deletion groups.
     if st.button("Register selected deletion groups"):
