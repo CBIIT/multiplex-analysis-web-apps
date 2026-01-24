@@ -133,17 +133,32 @@ def load_unified_input_file_data(file_format, db_schema, bucket_name, object_fil
         raise
 
 
-def raw_intensities_phenotypes_to_lazyframe(df):
-    orig_colnames = [col for col in df.columns if col.startswith("Phenotype ")]
-    new_colnames = ["Phenotype_(standardized) " + col.removeprefix("Phenotype ") for col in orig_colnames]
-    lf = (
-        pl.from_pandas(df)
-        .lazy()
-        .with_row_index(name="input_index")
-        .rename(dict(zip(orig_colnames, new_colnames)))
-        .with_columns(pl.col(new_colnames).eq("+").cast(pl.UInt8))
-    )
-    return lf
+# Take the in-memory Pandas dataframe, write it to parquet, and scan it to return a lazyframe, so that we're not adding too much to memory.
+def load_phenotyped_raw_intensities_data(pd_df, topdir=".", subdir="input", file_format="parquet", handle="unified_input_file", index_column_name="input_index"):
+
+    try:
+
+        # Based on save_and_load_pandas_df_to_lf(), add an index to the pandas dataframe and save it to disk, and then scan it to a lazyframe.
+        _save_pandas_df_to_file(pd_df, handle=handle, file_format=file_format, topdir=topdir, subdir=subdir, index_column_name=index_column_name)
+        lf = _get_lf(handle, topdir=topdir, subdir=subdir, file_format=file_format)
+
+        # Get the old and new column names.
+        orig_colnames = [col for col in lf.collect_schema().names() if col.startswith("Phenotype ")]
+        new_colnames = ["Phenotype_(standardized) " + col.removeprefix("Phenotype ") for col in orig_colnames]
+
+        # Run the pandas dataframe through the polars pipeline.
+        lf = (
+            lf
+            .rename(dict(zip(orig_colnames, new_colnames)))
+            .with_columns(pl.col(new_colnames).eq("+").cast(pl.UInt8))
+        )
+
+        # Return the lazyframe.
+        return lf
+
+    except Exception as e:
+        framework_utils.multiprint(f"An error occurred while loading the raw intensities phenotyper data: {e}", (print,))
+        raise
 
 
 #### 2. First in phenotype.py ###############################################################

@@ -362,7 +362,12 @@ def deserialize_binary_files_to_dictionary(dict_name, directory, dictionary=None
                     lf = dictionary["LAZYFRAMES"][input_dataset["keys"][0]]["lf"]
                     lf_out = function(lf, **params)  # no need to inject topdir_for_lazyframe_data here, for now, since we're likely just transforming an already existing lazyframe that should already be set up to correctly reference an on-disk file
                 elif input_dataset["type"] == "pandas_df":
-                    pd_df = getattr(dictionary[input_dataset["keys"][0]][input_dataset["keys"][1]], input_dataset["keys"][2])  # Modify in the future; this is really specific to the format of sumap.cells on the run_spatial_umap.py page.
+                    if len(input_dataset["keys"]) == 3:
+                        pd_df = getattr(dictionary[input_dataset["keys"][0]][input_dataset["keys"][1]], input_dataset["keys"][2])  # Modify in the future; this is really specific to the format of sumap.cells on the run_spatial_umap.py page.
+                    elif len(input_dataset["keys"]) == 1:
+                        pd_df = dictionary[input_dataset["keys"][0]]
+                    else:
+                        raise ValueError(f"Unsupported number of keys for pandas_df input dataset: {len(input_dataset['keys'])}")
                     lf_out = function(pd_df, **params, topdir=topdir_for_lazyframe_data)  # inject topdir_for_lazyframe_data here since we're likely creating a file on disk (hence the need) from a pandas dataframe
 
                 dictionary["LAZYFRAMES"][lf_key]["lf"] = lf_out

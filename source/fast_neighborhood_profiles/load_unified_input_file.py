@@ -82,7 +82,17 @@ def main():
         with tabs[1]:
             if "mg__df" in st.session_state:
                 if st.button("Load data from raw intensities phenotyper"):
-                    lf = fnp_main.raw_intensities_phenotypes_to_lazyframe(st.session_state["mg__df"])
+                    params = dict(handle="unified_input_file", file_format="parquet", index_column_name="input_index")
+                    with st.spinner("Loading data..."):
+                        lf = fnp_main.load_phenotyped_raw_intensities_data(st.session_state["mg__df"], **params, topdir=framework_utils.session_dir())
+                    st.session_state["LAZYFRAMES"] = {}  # Clear existing lazyframes.
+                    st.session_state["LAZYFRAMES"]["unified_input_file"] = {
+                        "lf": lf,
+                        "function_metadata": {"module_name": "fast_neighborhood_profiles.main", "qualpath": "load_phenotyped_raw_intensities_data"},
+                        "input_dataset": {"type": "pandas_df", "keys": ("mg__df",)},
+                        "params": params,
+                        }
+                    fnp_main.clear_data_in_memory(st.session_state, st_key_prefixes=["phenotype.py__", "delete_cells.py__", "run_spatial_umap.py__", "assign_neighborhood_types.py__", "plot_neighborhood_types.py__"], function_caches=[sample_lf])
             else:
                 st.info("You need to run the \"Using Raw Intensities\" page in the \"Phenotyping\" page at left first.")
 
