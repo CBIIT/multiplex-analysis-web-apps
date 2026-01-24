@@ -133,6 +133,19 @@ def load_unified_input_file_data(file_format, db_schema, bucket_name, object_fil
         raise
 
 
+def raw_intensities_phenotypes_to_lazyframe(df):
+    orig_colnames = [col for col in df.columns if col.startswith("Phenotype ")]
+    new_colnames = ["Phenotype_(standardized) " + col.removeprefix("Phenotype ") for col in orig_colnames]
+    lf = (
+        pl.from_pandas(df)
+        .lazy()
+        .with_row_index(name="input_index")
+        .rename(dict(zip(orig_colnames, new_colnames)))
+        .with_columns(pl.col(new_colnames).eq("+").cast(pl.UInt8))
+    )
+    return lf
+
+
 #### 2. First in phenotype.py ###############################################################
 
 
