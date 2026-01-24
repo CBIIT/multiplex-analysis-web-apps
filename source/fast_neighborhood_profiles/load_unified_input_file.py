@@ -101,6 +101,23 @@ def main():
     st.write(sample_lf(lf))
     st.button("Resample dataset", on_click=sample_lf.clear)
 
+    if "mg__df" in st.session_state:
+
+        df = st.session_state["mg__df"]
+
+        orig_colnames = [col for col in df.columns if col.startswith("Phenotype ")]
+        new_colnames = ["Phenotype_(standardized) " + col.removeprefix("Phenotype ") for col in orig_colnames]
+
+        lf = (
+            pl.from_pandas(df)
+            .lazy()
+            .with_row_index(name="input_index")
+            .rename(dict(zip(orig_colnames, new_colnames)))
+            .with_columns(pl.col(new_colnames).eq("+").cast(pl.UInt8))
+        )
+
+        st.write(lf.collect(engine="in-memory").sample(100))
+
 
 # Run the main function if this script is executed.
 if __name__ == "__main__":
