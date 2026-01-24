@@ -30,45 +30,61 @@ def main():
 
     # Show the current contents of the selected upload location using a selectable dataframe.
     with st.columns(2)[0]:
-        upload_location = "Available input files"
-        objects_list = get_objects_list(upload_location)
-        unified_datafile_mapping = {fullname.removeprefix("mawa-unified_datafile-").removesuffix(".csv.zip").removesuffix(".csv.gz"): fullname for fullname in objects_list if fullname.startswith("mawa-unified_datafile-") and fullname.endswith((".csv.zip", ".csv.gz"))}
-        objects_list = unified_datafile_mapping.keys()
-        column_heading = "Unified input file"
-        key = "current_contents_table__do_not_persist"
-        if objects_list:
-            df = pl.DataFrame({column_heading: objects_list})
-            st.dataframe(df, on_select="rerun", key=key, selection_mode="single-row")
-            st.write(f"{len(objects_list)} unified input file(s) found.")
-        else:
-            st.write("No unified input files found.")
-        st.button("Refresh file list", on_click=get_objects_list.clear)
 
-        # If some files are selected...
-        if key in st.session_state:
-            rows = st.session_state[key]["selection"]["rows"]
-            if rows:
-                
-                # Get a list of the selected shortnames (short versions of the filenames).
-                selected_filenames = df[rows][column_heading].to_list()
+        # Create two tabs.
+        tabs = st.tabs(["From unified input file", "From raw intensities phenotyper"])
 
-                # Load the lazyframe from the selected row.
-                if st.button(f":warning: Load unified input file", help="We recommend that you press the \"🧹 Reset app\" button on the left sidebar before loading a new file in order to start cleanly. If so, and if it's important, please back up the app session first at the \"Manage sessions\" page at left. The primary point of that is to free of memory from pages *outside* the high-performance workflow. Separately, pressing this button will delete downstream data *inside* the high-performance workflow as well, which makes sense because we are opening a new dataset here. So, please ensure any results in the high-performance workflow are sufficiently backed up before proceeding."):
-                    object_filename = unified_datafile_mapping[selected_filenames[0]]
-                    file_format = "parquet"
-                    db_schema = get_location_settings()[upload_location]["db_schema"]
-                    bucket_name = get_location_settings()[upload_location]["bucket_name"]
-                    params = dict(file_format=file_format, db_schema=db_schema, bucket_name=bucket_name, object_filename=object_filename)
-                    with st.spinner("Loading file..."):
-                        lf = fnp_main.load_unified_input_file_data(**params, topdir=framework_utils.session_dir())
-                    st.session_state["LAZYFRAMES"] = {}  # Clear existing lazyframes.
-                    st.session_state["LAZYFRAMES"]["unified_input_file"] = {
-                        "lf": lf,
-                        "function_metadata": {"module_name": "fast_neighborhood_profiles.main", "qualpath": "load_unified_input_file_data"},
-                        "input_dataset": None,
-                        "params": params,
-                    }
-                    fnp_main.clear_data_in_memory(st.session_state, st_key_prefixes=["phenotype.py__", "delete_cells.py__", "run_spatial_umap.py__", "assign_neighborhood_types.py__", "plot_neighborhood_types.py__"], function_caches=[sample_lf])
+        # In the first tab, load data from a unified input file.
+        with tabs[0]:
+
+            # Display the available unified input files.
+            upload_location = "Available input files"
+            objects_list = get_objects_list(upload_location)
+            unified_datafile_mapping = {fullname.removeprefix("mawa-unified_datafile-").removesuffix(".csv.zip").removesuffix(".csv.gz"): fullname for fullname in objects_list if fullname.startswith("mawa-unified_datafile-") and fullname.endswith((".csv.zip", ".csv.gz"))}
+            objects_list = unified_datafile_mapping.keys()
+            column_heading = "Unified input file"
+            key = "current_contents_table__do_not_persist"
+            if objects_list:
+                df = pl.DataFrame({column_heading: objects_list})
+                st.dataframe(df, on_select="rerun", key=key, selection_mode="single-row")
+                st.write(f"{len(objects_list)} unified input file(s) found.")
+            else:
+                st.write("No unified input files found.")
+            st.button("Refresh file list", on_click=get_objects_list.clear)
+
+            # If some files are selected...
+            if key in st.session_state:
+                rows = st.session_state[key]["selection"]["rows"]
+                if rows:
+                    
+                    # Get a list of the selected shortnames (short versions of the filenames).
+                    selected_filenames = df[rows][column_heading].to_list()
+
+                    # Load the lazyframe from the selected row.
+                    if st.button(f":warning: Load unified input file", help="We recommend that you press the \"🧹 Reset app\" button on the left sidebar before loading a new file in order to start cleanly. If so, and if it's important, please back up the app session first at the \"Manage sessions\" page at left. The primary point of that is to free of memory from pages *outside* the high-performance workflow. Separately, pressing this button will delete downstream data *inside* the high-performance workflow as well, which makes sense because we are opening a new dataset here. So, please ensure any results in the high-performance workflow are sufficiently backed up before proceeding."):
+                        object_filename = unified_datafile_mapping[selected_filenames[0]]
+                        file_format = "parquet"
+                        db_schema = get_location_settings()[upload_location]["db_schema"]
+                        bucket_name = get_location_settings()[upload_location]["bucket_name"]
+                        params = dict(file_format=file_format, db_schema=db_schema, bucket_name=bucket_name, object_filename=object_filename)
+                        with st.spinner("Loading file..."):
+                            lf = fnp_main.load_unified_input_file_data(**params, topdir=framework_utils.session_dir())
+                        st.session_state["LAZYFRAMES"] = {}  # Clear existing lazyframes.
+                        st.session_state["LAZYFRAMES"]["unified_input_file"] = {
+                            "lf": lf,
+                            "function_metadata": {"module_name": "fast_neighborhood_profiles.main", "qualpath": "load_unified_input_file_data"},
+                            "input_dataset": None,
+                            "params": params,
+                        }
+                        fnp_main.clear_data_in_memory(st.session_state, st_key_prefixes=["phenotype.py__", "delete_cells.py__", "run_spatial_umap.py__", "assign_neighborhood_types.py__", "plot_neighborhood_types.py__"], function_caches=[sample_lf])
+
+        # In the second tab, load data from raw intensities phenotyper.
+        with tabs[1]:
+            if "mg__df" in st.session_state:
+                if st.button("Load data from raw intensities phenotyper"):
+                    lf = fnp_main.raw_intensities_phenotypes_to_lazyframe(st.session_state["mg__df"])
+            else:
+                st.info("You need to run the \"Using Raw Intensities\" page in the \"Phenotyping\" page at left first.")
 
     # If there's lazyframe information in the session state...
     if not ("LAZYFRAMES" in st.session_state and "unified_input_file" in st.session_state["LAZYFRAMES"]):
@@ -100,23 +116,6 @@ def main():
     # Show a sample of 100 rows from the lazyframe.
     st.write(sample_lf(lf))
     st.button("Resample dataset", on_click=sample_lf.clear)
-
-    if "mg__df" in st.session_state:
-
-        df = st.session_state["mg__df"]
-
-        orig_colnames = [col for col in df.columns if col.startswith("Phenotype ")]
-        new_colnames = ["Phenotype_(standardized) " + col.removeprefix("Phenotype ") for col in orig_colnames]
-
-        lf = (
-            pl.from_pandas(df)
-            .lazy()
-            .with_row_index(name="input_index")
-            .rename(dict(zip(orig_colnames, new_colnames)))
-            .with_columns(pl.col(new_colnames).eq("+").cast(pl.UInt8))
-        )
-
-        st.write(lf.collect(engine="in-memory").sample(100))
 
 
 # Run the main function if this script is executed.
