@@ -32,7 +32,8 @@ def main():
     with st.columns(2)[0]:
 
         # Create two tabs.
-        tabs = st.tabs(["From unified input file", "From raw intensities phenotyper"])
+        tab_options = ["From unified input file", "From raw intensities phenotyper"]
+        tabs = st.tabs(tab_options)
 
         # In the first tab, load data from a unified input file.
         with tabs[0]:
@@ -76,6 +77,7 @@ def main():
                             "input_dataset": None,
                             "params": params,
                         }
+                        st.session_state[ST_KEY_PREFIX + "data_loading_method"] = tab_options[0]
                         fnp_main.clear_data_in_memory(st.session_state, st_key_prefixes=["phenotype.py__", "delete_cells.py__", "run_spatial_umap.py__", "assign_neighborhood_types.py__", "plot_neighborhood_types.py__"], function_caches=[sample_lf])
 
         # In the second tab, load data from raw intensities phenotyper.
@@ -92,6 +94,7 @@ def main():
                         "input_dataset": {"type": "pandas_df", "keys": ("mg__df",)},
                         "params": params,
                         }
+                    st.session_state[ST_KEY_PREFIX + "data_loading_method"] = tab_options[1]
                     fnp_main.clear_data_in_memory(st.session_state, st_key_prefixes=["phenotype.py__", "delete_cells.py__", "run_spatial_umap.py__", "assign_neighborhood_types.py__", "plot_neighborhood_types.py__"], function_caches=[sample_lf])
             else:
                 st.info("You need to run the \"Using Raw Intensities\" page in the \"Phenotyping\" page at left first.")
@@ -102,10 +105,11 @@ def main():
         return
 
     # Get information about the lazyframe from the metadata in the session state.
-    file_format = st.session_state["LAZYFRAMES"]["unified_input_file"]["params"]["file_format"]
-    db_schema = st.session_state["LAZYFRAMES"]["unified_input_file"]["params"]["db_schema"]
-    bucket_name = st.session_state["LAZYFRAMES"]["unified_input_file"]["params"]["bucket_name"]
-    object_filename = st.session_state["LAZYFRAMES"]["unified_input_file"]["params"]["object_filename"]
+    params = st.session_state["LAZYFRAMES"]["unified_input_file"]["params"]
+    file_format = params["file_format"]
+    db_schema = params["db_schema"] if "db_schema" in params else "N/A"
+    bucket_name = params["bucket_name"] if "bucket_name" in params else "N/A"
+    object_filename = params["object_filename"] if "object_filename" in params else "N/A"
 
     # Get the lazyframe from the session state now.
     lf = st.session_state["LAZYFRAMES"]["unified_input_file"]["lf"]
@@ -114,6 +118,7 @@ def main():
     information = f'''
     Properties:
 
+    :small_orange_diamond: Data loading method: `{st.session_state[ST_KEY_PREFIX + "data_loading_method"]}`  
     :small_orange_diamond: File format: `{file_format}`  
     :small_orange_diamond: database.schema: `{db_schema}`  
     :small_orange_diamond: Bucket name: `{bucket_name}`  
