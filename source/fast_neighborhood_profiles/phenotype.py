@@ -6,10 +6,52 @@ import polars as pl
 import framework.utils as framework_utils
 import datetime
 import pytz
-
+import numpy as np
+import pandas as pd
+import polars.testing
 
 # Define constants.
 ST_KEY_PREFIX = "phenotype.py__"
+
+
+def lazyframes_equal(a: pl.LazyFrame, b: pl.LazyFrame) -> bool:
+    try:
+        polars.testing.assert_frame_equal(a.collect(), b.collect())
+        return True
+    except AssertionError:
+        return False
+
+
+# For each phenotype label, compute the share of “positive” rows in each selected group/marker column, normalized by that column’s total positives across the whole dataset: using numpy.
+def label_share_by_group_numpy(
+    lf: pl.LazyFrame,
+    unique_labels: list[str],
+    ph_cols: list[str],  # group_columns_with_prefix
+    short: list[str],                # group_columns (without prefix)
+    transpose: bool = False,
+    round_to: int = 1,       # used only when pct=True
+) -> pl.LazyFrame:
+    df1 = (
+        pl.DataFrame({"label": unique_labels}).lazy()
+        .join((
+            lf.group_by("label").agg([pl.col(c).sum().alias(c) for c in ph_cols])
+        ), on="label", how="left")
+        .collect().to_pandas().set_index("label")
+    )
+    index = df1.index
+    columns = df1.columns
+    data = df1.values
+    if transpose:
+        data = data.T
+        # index, columns = columns, index
+    totals = data.sum(axis=0)[np.newaxis, :]
+    perc = data / totals * 100
+    if transpose:
+        perc = perc.T
+    df2 = pd.DataFrame(perc, index=index, columns=columns).round(round_to)
+    lf = pl.from_pandas(df2, include_index=True).lazy()
+    lf = lf.rename(dict(zip(ph_cols, short)))
+    return lf
 
 
 # For each phenotype label, compute the share of “positive” rows in each selected group/marker column, normalized by that column’s total positives across the whole dataset.
@@ -323,11 +365,33 @@ def main():
         )
 
         # Output the composition of each groups’s positive pool by label.
-        st.write(label_share_by_group(
+        lf1 = label_share_by_group(
             lf_joined,
             unique_labels,
             group_columns_with_prefix,
             group_columns,
+            round_to=2,
+        )
+
+        lf2 = label_share_by_group_numpy(
+            lf_joined,
+            unique_labels,
+            group_columns_with_prefix,
+            group_columns,
+            transpose=False,
+            round_to=2,
+        )
+
+        st.write(lazyframes_equal(lf1, lf2))
+
+        st.write(lf1)
+
+        st.write(label_share_by_group_numpy(
+            lf_joined,
+            unique_labels,
+            group_columns_with_prefix,
+            group_columns,
+            transpose=True,
             round_to=2,
         ))
 
