@@ -525,6 +525,47 @@ def plot_image_from_frame(
         raise
 
 
+# For each phenotype label, compute the share of “positive” rows in each selected group/marker column.
+def get_percent_label_shares(
+    lf: pl.LazyFrame,
+    unique_labels: list[str],
+    ph_cols: list[str],  # group_columns_with_prefix
+    short: list[str], # group_columns (without prefix)
+    round_to: int = 1,
+) -> pl.LazyFrame:
+
+    # Efficiently acquire the counts.
+    df_counts = (
+        pl.DataFrame({"label": unique_labels})
+        .lazy()
+        .join((
+            lf.group_by("label").agg([pl.col(c).sum() for c in ph_cols])
+        ), on="label", how="left")
+        .with_columns([pl.col(c).fill_null(0) for c in ph_cols])
+        .collect()
+        .to_pandas()
+        .set_index("label")
+    )
+
+    # Normalize to percentages.
+    values = df_counts.values
+    lf_label_share_list = []
+    totals_list = []
+    for axis in (0, 1):
+        totals = values.sum(axis=axis, keepdims=True)
+        index = df_counts.columns if axis == 0 else df_counts.index
+        totals_list.append(pd.Series(totals.flatten(), index=index, name="Total"))
+        df2 = pd.DataFrame(values / totals * 100, index=df_counts.index, columns=df_counts.columns).round(round_to)
+        lf_label_share_list.append(
+            pl.from_pandas(df2, include_index=True)
+            .lazy()
+            .rename(dict(zip(ph_cols, short)))
+        )
+
+    # Return the result and the raw counts.
+    return lf_label_share_list, df_counts, totals_list
+
+
 #### 3. First in delete_cells.py ########################################################
 
 

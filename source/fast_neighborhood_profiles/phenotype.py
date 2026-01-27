@@ -6,96 +6,39 @@ import polars as pl
 import framework.utils as framework_utils
 import datetime
 import pytz
-import numpy as np
-import pandas as pd
-import polars.testing
 
 # Define constants.
 ST_KEY_PREFIX = "phenotype.py__"
 
 
-def lazyframes_equal(a: pl.LazyFrame, b: pl.LazyFrame) -> bool:
-    try:
-        polars.testing.assert_frame_equal(a.collect(), b.collect())
-        return True
-    except AssertionError:
-        return False
+# GUI interface for the percent label shares.
+def percent_label_shares(lf_joined, unique_labels, group_columns_with_prefix, group_columns):
 
-
-# For each phenotype label, compute the share of “positive” rows in each selected group/marker column, normalized by that column’s total positives across the whole dataset: using numpy.
-def label_share_by_group_numpy(
-    lf: pl.LazyFrame,
-    unique_labels: list[str],
-    ph_cols: list[str],  # group_columns_with_prefix
-    short: list[str],                # group_columns (without prefix)
-    transpose: bool = False,
-    round_to: int = 1,       # used only when pct=True
-) -> pl.LazyFrame:
-    df1 = (
-        pl.DataFrame({"label": unique_labels}).lazy()
-        .join((
-            lf.group_by("label").agg([pl.col(c).sum().alias(c) for c in ph_cols])
-        ), on="label", how="left")
-        .collect().to_pandas().set_index("label")
-    )
-    index = df1.index
-    columns = df1.columns
-    data = df1.values
-    if transpose:
-        data = data.T
-        # index, columns = columns, index
-    totals = data.sum(axis=0)[np.newaxis, :]
-    perc = data / totals * 100
-    if transpose:
-        perc = perc.T
-    df2 = pd.DataFrame(perc, index=index, columns=columns).round(round_to)
-    lf = pl.from_pandas(df2, include_index=True).lazy()
-    lf = lf.rename(dict(zip(ph_cols, short)))
-    return lf
-
-
-# For each phenotype label, compute the share of “positive” rows in each selected group/marker column, normalized by that column’s total positives across the whole dataset.
-def label_share_by_group(
-    lf: pl.LazyFrame,
-    unique_labels: list[str],
-    ph_cols: list[str],  # group_columns_with_prefix
-    short: list[str],                # group_columns (without prefix)
-    prefix: str = "Phenotype_(standardized) ",
-    pct: bool = True,        # True => 0–100; False => 0–1
-    round_to: int = 1,       # used only when pct=True
-) -> pl.LazyFrame:
-
-    # 1) Counts per (label) for each phenotype column.
-    counts = lf.group_by("label").agg([pl.col(c).sum().alias(c) for c in ph_cols])
-
-    # 2) Totals per phenotype (number of 1s in each group column).
-    totals = lf.select([pl.col(c).sum().alias(c + "_tot") for c in ph_cols])
-
-    # 3) Ensure all labels appear; attach totals once (cross join).
-    base = (
-        pl.DataFrame({"label": unique_labels}).lazy()
-        .join(counts, on="label", how="left")
-        .join(totals, how="cross")
+    # Compute percent label shares normalized over both labels and groups.
+    lf_label_share_list, df_counts, totals_list = fnp_main.get_percent_label_shares(
+        lf_joined,
+        unique_labels,
+        group_columns_with_prefix,
+        group_columns,
+        round_to=2,
     )
 
-    # 4) Compute shares: if total == 0 → None; else (count / total).
-    factor = (100 if pct else 1)
-    vals = [
-        pl.when(pl.col(c + "_tot") == 0)
-          .then(pl.lit(None))
-          .otherwise(
-              (pl.col(c).fill_null(0) / pl.col(c + "_tot")) * factor
-          )
-          .pipe(lambda e: e.round(round_to) if pct else e)
-          .alias(c.removeprefix(prefix))
-        for c in ph_cols
-    ]
+    # Output the raw data.
+    st.write("Total count of cells of each label in each group (column):")
+    st.write(df_counts)
 
-    # 5) Return the result, dropping raw count/total cols.
-    return (
-        base.with_columns(vals)
-            .select(["label"] + short)
-    )
+    # Output "absolute" percentages and what they're normalized by.
+    st.write("% counts normalized by group totals:")
+    st.write(lf_label_share_list[0])
+    st.write("Group totals:")
+    st.write(totals_list[0])
+
+    # Output "relative" percentages and what they're normalized by.
+    st.write("% counts normalized by cell count totals:")
+    st.write(lf_label_share_list[1])
+    st.write("Cell count totals:")
+    st.write("*Note this may not equal the main species counts if some cells are not in any group.*")
+    st.write(totals_list[1])
 
 
 # GUI interface for marker phenotyping.
@@ -344,56 +287,41 @@ def main():
             st.write(f"Total count: {st.session_state[key][selected_image_to_plot][f'Count in {selected_image_to_plot}'].sum():_}")
             st.write(st.session_state[key][selected_image_to_plot])
 
-    with st.expander("Extras", expanded=False):
-        # extras_columns = st.columns(2)
-        # with extras_columns[0]:
+    with st.columns(1, border=True)[0]:
+    
+        # Allow the user to perform extra calculations.
+        if st.toggle("Calculate percent label shares", value=False):
+        
+            # Allow the user to select the groups that they're interested in.
+            st.session_state.setdefault(ST_KEY_PREFIX + "group_columns", [])
+            group_columns = st.multiselect("Select group variables:", options=marker_column_options, key=ST_KEY_PREFIX + "group_columns")
+            group_columns_with_prefix = [f"Phenotype_(standardized) {x}" for x in group_columns]
 
-        # Allow the user to select the groups that they're interested in.
-        st.session_state.setdefault(ST_KEY_PREFIX + "group_columns", marker_column_options)
-        group_columns = st.multiselect("Select group columns:", options=marker_column_options, key=ST_KEY_PREFIX + "group_columns")
-        group_columns_with_prefix = [f"Phenotype_(standardized) {x}" for x in group_columns]
+            # Ensure at least one group is selected.
+            if len(group_columns) == 0:
+                st.info("Please select at least one group variable above.")
+                return
 
-        # Since phenotyping may have removed the original standardized phenotype columns, ensure those that we're interested in (group_columns_with_prefix) exist in the phenotyped lazyframe.
-        lf_joined = (
-            lf_phenotyped
-            .drop(group_columns_with_prefix, strict=False)
-            .join(
-                lf_unified.select([pl.col("input_index"), pl.col(group_columns_with_prefix)]),
-                on="input_index",
-                how="left",
+            # Since phenotyping may have removed the original standardized phenotype columns, ensure those that we're interested in (group_columns_with_prefix) exist in the phenotyped lazyframe.
+            lf_joined = (
+                lf_phenotyped
+                .drop(group_columns_with_prefix, strict=False)
+                .join(
+                    lf_unified.select([pl.col("input_index"), pl.col(group_columns_with_prefix)]),
+                    on="input_index",
+                    how="left",
+                )
             )
-        )
 
-        # Output the composition of each groups’s positive pool by label.
-        lf1 = label_share_by_group(
-            lf_joined,
-            unique_labels,
-            group_columns_with_prefix,
-            group_columns,
-            round_to=2,
-        )
-
-        lf2 = label_share_by_group_numpy(
-            lf_joined,
-            unique_labels,
-            group_columns_with_prefix,
-            group_columns,
-            transpose=False,
-            round_to=2,
-        )
-
-        st.write(lazyframes_equal(lf1, lf2))
-
-        st.write(lf1)
-
-        st.write(label_share_by_group_numpy(
-            lf_joined,
-            unique_labels,
-            group_columns_with_prefix,
-            group_columns,
-            transpose=True,
-            round_to=2,
-        ))
+            # Output percent label shares for the full dataset and the selected image.
+            percent_label_shares_columns = st.columns(2, border=True)
+            with percent_label_shares_columns[0]:
+                st.subheader("Full dataset label shares")
+                percent_label_shares(lf_joined, unique_labels, group_columns_with_prefix, group_columns)
+            with percent_label_shares_columns[1]:
+                st.subheader(f"Label shares in image `{selected_image_to_plot}`")
+                lf_joined_image = lf_joined.filter(pl.col(image_colname) == selected_image_to_plot)
+                percent_label_shares(lf_joined_image, unique_labels, group_columns_with_prefix, group_columns)
 
 
 # Run the main function if this script is executed.
