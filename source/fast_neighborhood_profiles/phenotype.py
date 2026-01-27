@@ -223,6 +223,17 @@ def main():
             else:
                 marker_size = None
 
+            # Allow the user to modify phenotype colors.
+            color_picker_columns = st.columns(2)
+            with color_picker_columns[0]:
+                st.session_state.setdefault(ST_KEY_PREFIX + "phenotype_whose_color_to_modify", list(phenotype_color_map.keys())[0])
+                phenotype_whose_color_to_modify = st.selectbox("Pick a phenotype whose color to modify:", options=phenotype_color_map.keys(), key=ST_KEY_PREFIX + "phenotype_whose_color_to_modify", on_change=lambda: st.session_state.update(
+                    {ST_KEY_PREFIX + "new_color_for_selected_phenotype": phenotype_color_map[st.session_state[ST_KEY_PREFIX + "phenotype_whose_color_to_modify"]]}
+                ))
+            with color_picker_columns[1]:
+                st.session_state.setdefault(ST_KEY_PREFIX + "new_color_for_selected_phenotype", phenotype_color_map[phenotype_whose_color_to_modify])
+                st.color_picker("Select new color:", key=ST_KEY_PREFIX + "new_color_for_selected_phenotype", on_change=lambda: phenotype_color_map.update({phenotype_whose_color_to_modify: st.session_state[ST_KEY_PREFIX + "new_color_for_selected_phenotype"]}), help="To reset colors, simply perform phenotyping again.")
+
         # Allow the user to set print size and DPI.
         with more_options_columns[1]:
             st.session_state.setdefault(ST_KEY_PREFIX + 'print_width_in', 7.0)
@@ -287,9 +298,8 @@ def main():
             st.write(f"Total count: {st.session_state[key][selected_image_to_plot][f'Count in {selected_image_to_plot}'].sum():_}")
             st.write(st.session_state[key][selected_image_to_plot])
 
+    # Allow the user to perform extra calculations.
     with st.columns(1, border=True)[0]:
-    
-        # Allow the user to perform extra calculations.
         if st.toggle("Calculate percent label shares", value=False):
         
             # Allow the user to select the groups that they're interested in.
