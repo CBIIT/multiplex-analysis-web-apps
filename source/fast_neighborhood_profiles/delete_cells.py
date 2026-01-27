@@ -180,7 +180,11 @@ def main():
     st.header(":four: Create filtered unified datafile")
 
     # Allow user to modify the name of a new unified datafile to write out.
-    st.session_state.setdefault(ST_KEY_PREFIX + "output_unified_datafile_name", st.session_state["LAZYFRAMES"]["unified_input_file"]["params"]["object_filename"].removeprefix("mawa-unified_datafile-").removesuffix(".csv.zip").removesuffix(".csv.gz"))
+    if "object_filename" in st.session_state["LAZYFRAMES"]["unified_input_file"]["params"]:
+        output_unified_datafile_name_default = st.session_state["LAZYFRAMES"]["unified_input_file"]["params"]["object_filename"].removeprefix("mawa-unified_datafile-").removesuffix(".csv.zip").removesuffix(".csv.gz")
+    else:
+        output_unified_datafile_name_default = "modified_unified_datafile"
+    st.session_state.setdefault(ST_KEY_PREFIX + "output_unified_datafile_name", output_unified_datafile_name_default)
     output_unified_datafile_name = st.text_input("Enter name for modified unified datafile (without any prefixes or suffixes, just like the example):", key=ST_KEY_PREFIX + "output_unified_datafile_name")
 
     # Allow user to write out the modified unified datafile with the deletion groups deleted.
