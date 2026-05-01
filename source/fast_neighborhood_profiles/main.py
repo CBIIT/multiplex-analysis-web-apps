@@ -16,6 +16,7 @@ import time
 import scipy.spatial
 import plotly.colors
 import io
+import polars.selectors as cs
 
 
 #### 1. First in load_unified_input_file.py ###############################################################
@@ -167,6 +168,7 @@ def load_phenotyped_raw_intensities_data(pd_df, topdir=".", subdir="input", file
 # Get the marker column names from the lazyframe.
 def get_marker_columns(lf, prefix="Phenotype_(standardized) "):
     marker_columns = [column for column in lf.collect_schema().names() if column.startswith(prefix)]
+    lf = convert_to_0_or_1(lf, marker_columns)
     marker_columns_ordered = lf.select(pl.col(marker_columns).sum()).melt(variable_name="column", value_name="sum").sort("sum", descending=True).select("column").collect(engine="streaming").to_series().to_list()
     marker_columns_ordered_no_prefix = [x.removeprefix(prefix) for x in marker_columns_ordered]
     return marker_columns_ordered_no_prefix, marker_columns_ordered
@@ -199,8 +201,15 @@ def get_phenotyped_metadata(lf_phenotyped, phenotyping_method):
 
 # Convert marker columns to binary 0/1 if they aren't already, interpreting "+" as 1 and everything else as 0. This allows for more flexible input formats while ensuring the downstream logic works with binary values.
 def convert_to_0_or_1(lf, marker_columns_with_prefix):
+
+    # Assume string-like columns in merker_columns_with_prefix are '+'/'-' columns.
+    string_like_cols = cs.expand_selector(
+        lf,
+        cs.by_name(marker_columns_with_prefix, require_all=False) - cs.numeric()
+    )
+
     return lf.with_columns(
-        pl.col(marker_columns_with_prefix).replace_strict("+", 1, default=0, return_dtype=pl.Int8)
+        pl.col(string_like_cols).replace_strict("+", 1, default=0, return_dtype=pl.Int8)
     )
 
 
