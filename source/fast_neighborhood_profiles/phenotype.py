@@ -80,6 +80,9 @@ def species_phenotyping(lf, marker_columns_with_prefix):
         # Define marker columns without prefix.
         marker_columns = [col.removeprefix("Phenotype_(standardized) ") for col in marker_columns_with_prefix]
 
+        # Convert marker columns to binary 0/1 if they aren't already, interpreting "+" as 1 and everything else as 0. This allows for more flexible input formats while ensuring the downstream logic works with binary values.
+        lf = fnp_main.convert_to_0_or_1(lf, marker_columns_with_prefix)
+
         # Add the species column to the main lazyframe.
         lf = fnp_main.obtain_species_column_from_markers_columns(lf, marker_columns_with_prefix, marker_columns)
 

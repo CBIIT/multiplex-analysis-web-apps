@@ -197,9 +197,19 @@ def get_phenotyped_metadata(lf_phenotyped, phenotyping_method):
     }
 
 
+# Convert marker columns to binary 0/1 if they aren't already, interpreting "+" as 1 and everything else as 0. This allows for more flexible input formats while ensuring the downstream logic works with binary values.
+def convert_to_0_or_1(lf, marker_columns_with_prefix):
+    return lf.with_columns(
+        pl.col(marker_columns_with_prefix).replace_strict("+", 1, default=0, return_dtype=pl.Int8)
+    )
+
+
 def perform_marker_phenotyping_on_lazyframe(lf, marker_columns_with_prefix, colname_regex_to_replace=r"^Phenotype_\(standardized\)\s+"):
 
     try:
+
+        # Convert marker columns to binary 0/1 if they aren't already, interpreting "+" as 1 and everything else as 0. This allows for more flexible input formats while ensuring the downstream logic works with binary values.
+        lf = convert_to_0_or_1(lf, marker_columns_with_prefix)
 
         # Keep only rows that have at least one 1 in marker_columns.
         any_one = pl.any_horizontal([(pl.col(c) == 1) for c in marker_columns_with_prefix])
@@ -292,6 +302,9 @@ def create_species_assignments_table(lf):
 
 
 def perform_species_phenotyping_on_lazyframe(lf, marker_columns_with_prefix, df_species_assignments):
+
+    # Convert marker columns to binary 0/1 if they aren't already, interpreting "+" as 1 and everything else as 0. This allows for more flexible input formats while ensuring the downstream logic works with binary values.
+    lf = convert_to_0_or_1(lf, marker_columns_with_prefix)
 
     # For parity with perform_marker_phenotyping_on_lazyframe(), calculate marker_columns, don't send it in.
     marker_columns = [x.removeprefix("Phenotype_(standardized) ") for x in marker_columns_with_prefix]
